@@ -359,8 +359,7 @@ class SignInApp:
     
     def _draw_circle_button(self, is_signed=None):
         """
-        绘制圆形签到按钮（根据用户提供的设计要求）
-        :param is_signed: 是否已签到，控制按钮颜色
+        绘制圆形签到按钮（优化版：带阴影、笑脸和交互效果）
         """
         if is_signed is not None:
             self.is_signed = is_signed
@@ -369,81 +368,104 @@ class SignInApp:
         self.sign_button.delete("all")
         
         # 获取画布尺寸
-        button_size = self.sign_button.winfo_width()
-        center_x = button_size // 2
-        center_y = button_size // 2
-        
-        # 1. 绘制圆形背景（根据签到状态设置颜色）
-        # 已签到为绿色，未签到为灰色
-        if self.is_signed:
-            bg_color = self.colors['primary']
-        else:
-            bg_color = '#bdc3c7'  # 灰色
-        
-        self.sign_button.create_oval(0, 0, button_size, button_size, 
-                                    fill=bg_color, 
-                                    outline="",
-                                    width=0)
-        
-        # 2. 绘制文字（根据签到状态显示不同内容）
-        text = "已签到" if self.is_signed else "今日签到"
-        
-        if button_size <= 180:
-            text_font = ('黑体', 20, 'bold')
-        else:
-            text_font = ('黑体', 24, 'bold')
+        width = self.sign_button.winfo_width()
+        height = self.sign_button.winfo_height()
+        # 确保尺寸有效
+        if width <= 1 or height <= 1:
+            width = 200
+            height = 200
             
-        self.sign_button.create_text(center_x, center_y, 
-                                    text=text,
-                                    font=text_font,
-                                    fill="white",
-                                    justify=tk.CENTER)
-    
+        # 计算圆心和半径
+        center_x = width // 2
+        center_y = height // 2
+        radius = min(width, height) // 2 - 10  # 留出阴影空间
+        
+        # 颜色定义
+        if self.is_signed:
+            bg_color = self.colors['success']
+            shadow_color = '#1B5E20' # 深绿色阴影
+            text = "已签到"
+            text_color = "white"
+        else:
+            bg_color = '#B0BEC5' # 蓝灰色（比纯灰更有质感）
+            shadow_color = '#78909C' # 深蓝灰阴影
+            text = "今日签到"
+            text_color = "white"
+            
+        # 1. 绘制阴影（向右下偏移）
+        shadow_offset = 5
+        self.sign_button.create_oval(
+            center_x - radius + shadow_offset, center_y - radius + shadow_offset,
+            center_x + radius + shadow_offset, center_y + radius + shadow_offset,
+            fill=shadow_color, outline="", tags="btn_bg"
+        )
+        
+        # 2. 绘制主按钮背景
+        self.sign_button.create_oval(
+            center_x - radius, center_y - radius,
+            center_x + radius, center_y + radius,
+            fill=bg_color, outline="", tags="btn_bg"
+        )
+        
+        # 3. 绘制简笔画笑脸 (白色)
+        # 眼睛
+        eye_offset_x = radius * 0.35
+        eye_offset_y = radius * 0.2
+        eye_radius = radius * 0.08
+        
+        # 左眼
+        self.sign_button.create_oval(
+            center_x - eye_offset_x - eye_radius, center_y - eye_offset_y - eye_radius,
+            center_x - eye_offset_x + eye_radius, center_y - eye_offset_y + eye_radius,
+            fill="white", outline="", tags="btn_content"
+        )
+        # 右眼
+        self.sign_button.create_oval(
+            center_x + eye_offset_x - eye_radius, center_y - eye_offset_y - eye_radius,
+            center_x + eye_offset_x + eye_radius, center_y - eye_offset_y + eye_radius,
+            fill="white", outline="", tags="btn_content"
+        )
+        
+        # 嘴巴 (使用 arc 绘制微笑)
+        mouth_radius = radius * 0.5
+        self.sign_button.create_arc(
+            center_x - mouth_radius, center_y - mouth_radius * 0.8,
+            center_x + mouth_radius, center_y + mouth_radius * 1.2,
+            start=200, extent=140, style=tk.ARC, outline="white", width=4,
+            tags="btn_content"
+        )
+
+        # 4. 绘制文字 (位于下方)
+        self.sign_button.create_text(
+            center_x, center_y + radius * 0.5,
+            text=text,
+            font=('黑体', 16, 'bold'),
+            fill=text_color,
+            tags="btn_content"
+        )
+        
+        # 绑定事件到所有元素
+        self.sign_button.tag_bind("btn_bg", "<Button-1>", lambda e: self._on_sign_in())
+        self.sign_button.tag_bind("btn_content", "<Button-1>", lambda e: self._on_sign_in())
+        self.sign_button.tag_bind("btn_bg", "<Enter>", lambda e: self._circle_button_hover(True))
+        self.sign_button.tag_bind("btn_content", "<Enter>", lambda e: self._circle_button_hover(True))
+        self.sign_button.tag_bind("btn_bg", "<Leave>", lambda e: self._circle_button_hover(False))
+        self.sign_button.tag_bind("btn_content", "<Leave>", lambda e: self._circle_button_hover(False))
+
     def _circle_button_hover(self, is_hover):
         """
-        圆形按钮悬停效果（根据用户提供的设计要求）
+        圆形按钮悬停效果
         """
-        # 清空画布
-        self.sign_button.delete("all")
-        
-        # 获取画布尺寸
-        button_size = self.sign_button.winfo_width()
-        center_x = button_size // 2
-        center_y = button_size // 2
-        
-        # 1. 绘制圆形背景（悬停时颜色变化）
         if self.is_signed:
-            # 已签到状态：保持绿色或稍微变深
-            base_color = self.colors['primary']
-            hover_color = self.colors['primary_dark']
+            base_color = self.colors['success']
+            hover_color = '#1B5E20'
         else:
-            # 未签到状态：灰色变深灰
-            base_color = '#bdc3c7'
-            hover_color = '#7f8c8d'  # 深灰色
+            base_color = '#B0BEC5'
+            hover_color = '#78909C'
 
-        if is_hover:
-            bg_color = hover_color
-        else:
-            bg_color = base_color
-        
-        self.sign_button.create_oval(0, 0, button_size, button_size, 
-                                    fill=bg_color, 
-                                    outline="",
-                                    width=0)
-        
-        # 2. 绘制文字
-        text = "已签到" if self.is_signed else "今日签到"
-        
-        if button_size <= 180:
-            text_font = ('黑体', 20, 'bold')
-        else:
-            text_font = ('黑体', 24, 'bold')
-            
-        self.sign_button.create_text(center_x, center_y, 
-                                    text=text,
-                                    font=text_font,
-                                    fill="white",
-                                    justify=tk.CENTER)
+        color = hover_color if is_hover else base_color
+        # 仅修改背景颜色，保留笑脸
+        self.sign_button.itemconfig("btn_bg", fill=color)
     
     def _draw_save_button(self):
         """
