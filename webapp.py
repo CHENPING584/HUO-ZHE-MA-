@@ -313,7 +313,7 @@ def check_and_send_reminders():
                 print(f"用户 {username} 连续 {consecutive_missed} 天未签到，发送提醒")
                 
                 # 发送内容
-                subject = "紧急提醒 - 活着吗"
+                subject = "紧急提醒 - 死了吗"
                 body = f"您的好友{username}已连续 {consecutive_missed} 天未签到。\n\n发送时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
                 
                 # 发送邮件（只发送已配置的联系方式）
@@ -589,7 +589,7 @@ def home():
                     return render_template("home.html", username=username, email=email, error="请先设置紧急联系人邮箱", show_form=True)
                 
                 # 发送内容
-                subject = "紧急提醒 - 活着吗"
+                subject = "紧急提醒 - 死了吗"
                 body = f"您的好友{username}已连续两天未签到。\n\n发送时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
                 
                 # 发送邮件

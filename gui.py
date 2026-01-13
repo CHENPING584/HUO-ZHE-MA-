@@ -38,7 +38,7 @@ class SignInApp:
         }
         
         # 设置窗口标题和大小（适配移动端和电脑端）
-        self.root.title("活着吗")
+        self.root.title("死了吗")
         
         # 获取屏幕尺寸
         screen_width = self.root.winfo_screenwidth()
