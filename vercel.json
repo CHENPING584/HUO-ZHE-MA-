@@ -1,18 +1,8 @@
 {
-  "version": 2,
-  "builds": [
+  "rewrites": [
     {
-      "src": "webapp.py",
-      "use": "@vercel/python"
+      "source": "/(.*)",
+      "destination": "/webapp.py"
     }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "webapp.py"
-    }
-  ],
-  "env": {
-    "FLASK_ENV": "production"
-  }
+  ]
 }
