@@ -103,9 +103,9 @@ class SignInApp:
         # self._create_history_section()
         
         # 刷新界面数据
-        # self._refresh_sign_status()
-        # self._refresh_history()
-        # self._refresh_stats_cards()
+        self._refresh_sign_status()
+        self._refresh_history()
+        self._refresh_stats_cards()
     
     def _setup_styles(self):
         """
@@ -357,10 +357,14 @@ class SignInApp:
         # 删除隐私政策和用户协议链接
         # 删除底部黑色色块（通过简化设计实现）
     
-    def _draw_circle_button(self):
+    def _draw_circle_button(self, is_signed=None):
         """
         绘制圆形签到按钮（根据用户提供的设计要求）
+        :param is_signed: 是否已签到，控制按钮颜色
         """
+        if is_signed is not None:
+            self.is_signed = is_signed
+
         # 清空画布
         self.sign_button.delete("all")
         
@@ -369,20 +373,28 @@ class SignInApp:
         center_x = button_size // 2
         center_y = button_size // 2
         
-        # 1. 绘制圆形背景（纯绿色填充）
+        # 1. 绘制圆形背景（根据签到状态设置颜色）
+        # 已签到为绿色，未签到为灰色
+        if self.is_signed:
+            bg_color = self.colors['primary']
+        else:
+            bg_color = '#bdc3c7'  # 灰色
+        
         self.sign_button.create_oval(0, 0, button_size, button_size, 
-                                    fill=self.colors['primary'], 
+                                    fill=bg_color, 
                                     outline="",
                                     width=0)
         
-        # 2. 绘制文字"今日签到"（居中显示，根据按钮大小调整字号）
+        # 2. 绘制文字（根据签到状态显示不同内容）
+        text = "已签到" if self.is_signed else "今日签到"
+        
         if button_size <= 180:
             text_font = ('黑体', 20, 'bold')
         else:
             text_font = ('黑体', 24, 'bold')
             
         self.sign_button.create_text(center_x, center_y, 
-                                    text="今日签到",
+                                    text=text,
                                     font=text_font,
                                     fill="white",
                                     justify=tk.CENTER)
@@ -400,24 +412,35 @@ class SignInApp:
         center_y = button_size // 2
         
         # 1. 绘制圆形背景（悬停时颜色变化）
-        if is_hover:
-            bg_color = self.colors['primary_dark']  # 深绿色
+        if self.is_signed:
+            # 已签到状态：保持绿色或稍微变深
+            base_color = self.colors['primary']
+            hover_color = self.colors['primary_dark']
         else:
-            bg_color = self.colors['primary']  # 主色绿色
+            # 未签到状态：灰色变深灰
+            base_color = '#bdc3c7'
+            hover_color = '#7f8c8d'  # 深灰色
+
+        if is_hover:
+            bg_color = hover_color
+        else:
+            bg_color = base_color
         
         self.sign_button.create_oval(0, 0, button_size, button_size, 
                                     fill=bg_color, 
                                     outline="",
                                     width=0)
         
-        # 2. 绘制文字"今日签到"（居中显示，根据按钮大小调整字号）
+        # 2. 绘制文字
+        text = "已签到" if self.is_signed else "今日签到"
+        
         if button_size <= 180:
             text_font = ('黑体', 20, 'bold')
         else:
             text_font = ('黑体', 24, 'bold')
             
         self.sign_button.create_text(center_x, center_y, 
-                                    text="今日签到",
+                                    text=text,
                                     font=text_font,
                                     fill="white",
                                     justify=tk.CENTER)
@@ -716,6 +739,8 @@ class SignInApp:
                 self._refresh_stats_cards()
             else:
                 messagebox.showinfo("提示", "您今日已签到！")
+                # 即使已签到（返回False），也要刷新状态确保按钮变绿
+                self._refresh_sign_status()
         except Exception as e:
             messagebox.showerror("错误", f"签到失败：{str(e)}")
     
