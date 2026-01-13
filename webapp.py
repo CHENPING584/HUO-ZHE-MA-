@@ -96,6 +96,14 @@ def init_db():
     conn.commit()
     conn.close()
 
+# 确保在 Vercel 环境下每次启动都检查数据库表是否存在
+if os.environ.get('VERCEL'):
+    try:
+        init_db()
+        print("Vercel环境: 数据库表初始化完成")
+    except Exception as e:
+        print(f"Vercel环境: 数据库初始化失败 - {str(e)}")
+
 # 检查用户是否已签到
 def is_signed_in_today(user_id):
     conn = sqlite3.connect(DATABASE)
