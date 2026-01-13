@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>活着吗？</title>
+    <style>
+        :root {
+            --primary-color: #4facfe;
+            --secondary-color: #00f2fe;
+            --accent-color: #4CBB17;
+            --danger-color: #ff6b6b;
+            --text-color: #333;
+            --text-light: #666;
+            --bg-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', '黑体', Arial, sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-color);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: white;
+            font-size: 36px;
+            font-weight: 800;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+        
+        .logout {
+            text-align: right;
+            margin-bottom: 20px;
+        }
+        
+        .logout-btn {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            font-family: inherit;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+        
+        .logout-btn:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .form-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            background: transparent;
+            box-shadow: none;
+            padding: 5px 0;
+        }
+        
+        .form-container form {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+        }
+        
+        .form-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 0;
+            flex-wrap: nowrap;
+        }
+        
+        .form-group {
+            flex: 0 0 auto;
+            min-width: auto;
+        }
+        
+        label {
+            display: none;
+        }
+        
+        input[type="text"],
+        input[type="email"] {
+            width: 150px;
+            padding: 6px 10px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            background-color: #f9f9f9;
+            transition: all 0.3s ease;
+        }
+        
+        input[type="text"]:focus,
+        input[type="email"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            background-color: white;
+            box-shadow: 0 0 0 4px rgba(79, 172, 254, 0.1);
+        }
+        
+        .status {
+            margin: 15px 0;
+            color: var(--accent-color);
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .error {
+            color: var(--danger-color);
+            font-size: 14px;
+            margin: 10px 0;
+            padding: 10px;
+            background: #ffe3e3;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .success {
+            color: var(--accent-color);
+            font-size: 14px;
+            margin: 10px 0;
+            padding: 10px;
+            background: #e3ffe3;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .settings-btn {
+            background-color: #f0f0f0;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-color);
+            padding: 8px 14px;
+            border-radius: 999px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        .settings-btn:hover {
+            background-color: #e0e0e0;
+            transform: translateY(-2px);
+        }
+        
+        .sign-in-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 40px 0;
+        }
+        
+        .sign-in-btn {
+            width: 230px;
+            height: 230px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4CBB17 0%, #3A9E0F 100%);
+            color: white;
+            border: none;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            font-family: inherit;
+            box-shadow: 0 10px 30px rgba(76, 187, 23, 0.4);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        /* 简笔画笑脸 - 眼睛 */
+        .sign-in-btn::before {
+            content: '';
+            position: absolute;
+            top: 25%; /* 使用百分比定位 */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 6%; /* 相对大小 */
+            height: 6%;
+            border-radius: 50%;
+            background-color: transparent;
+            box-shadow: -35px 0 0 0 white, 35px 0 0 0 white; /* 这里的px稍后在media query中可能需要调整，或者使用em */
+            opacity: 0.9;
+        }
+        
+        /* 简笔画笑脸 - 嘴巴 */
+        .sign-in-btn::after {
+            content: '';
+            position: absolute;
+            bottom: 25%; /* 使用百分比定位 */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 30%; /* 相对宽度 */
+            height: 12.5%; /* 相对高度 */
+            border-bottom: 4px solid white;
+            border-radius: 0 0 50% 50%; /* 半圆弧 */
+            opacity: 0.9;
+        }
+        
+        .sign-in-btn:hover:not(:disabled) {
+            transform: scale(1.05) translateY(-5px);
+            box-shadow: 0 15px 35px rgba(76, 187, 23, 0.5);
+        }
+        
+        .sign-in-btn:disabled {
+            background: linear-gradient(135deg, #bdc3c7 0%, #2c3e50 100%);
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(76, 187, 23, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(76, 187, 23, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(76, 187, 23, 0); }
+        }
+
+        .sign-in-btn:not(:disabled) {
+            animation: pulse 2s infinite;
+        }
+        
+        .stats-section {
+            display: flex;
+            gap: 20px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+        
+        .stat-card {
+            flex: 1;
+            min-width: 150px;
+            background-color: var(--card-bg);
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.5); /* Add subtle border */
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15); /* Enhanced hover shadow */
+        }
+        
+        .stat-title {
+            font-size: 14px;
+            color: var(--text-light);
+            margin-bottom: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px; /* Increase letter spacing */
+        }
+        
+        .stat-value {
+            font-size: 36px; /* Larger font size */
+            color: var(--primary-color);
+            font-weight: 800;
+            margin-bottom: 5px;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent; /* Gradient text */
+        }
+        
+        .stat-unit {
+            font-size: 13px;
+            color: var(--text-light);
+        }
+        
+        .warning {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.9); /* Lighter text */
+            font-size: 13px;
+            margin: 30px 0;
+            line-height: 1.6;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            background: rgba(0, 0, 0, 0.1); /* Subtle background */
+            padding: 10px 20px;
+            border-radius: 20px;
+        }
+
+        .footer {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 12px;
+            margin-top: 40px;
+            padding-bottom: 20px;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            body {
+                padding: 15px;
+            }
+
+            .container {
+                padding: 0 15px;
+            }
+            
+            h1 {
+                font-size: 28px;
+            }
+            
+            .form-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .form-container form {
+                width: 100%;
+            }
+            
+            .form-row {
+                flex-wrap: wrap;
+            }
+            
+            input[type="text"],
+            input[type="email"] {
+                width: 100%;
+            }
+            
+            .sign-in-btn {
+                width: 190px;
+                height: 190px;
+                font-size: 20px;
+            }
+
+            .sign-in-section {
+                margin: 25px 0;
+            }
+
+            .sign-in-btn::before {
+                box-shadow: -28px 0 0 0 white, 28px 0 0 0 white;
+            }
+            
+            .sign-in-btn::after {
+                border-bottom-width: 3px;
+            }
+            
+            .smiley {
+                font-size: 36px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logout">
+            <button class="logout-btn" onclick="window.location.href='/logout'">退出登录</button>
+        </div>
+        
+        <div class="header">
+            <h1>活着吗？</h1>
+        </div>
+        
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        
+        {% if success %}
+        <div class="success">{{ success }}</div>
+        {% endif %}
+
+        <div class="form-container">
+            {% if not success or success == '签到成功' %}
+            <form method="POST">
+                <input type="hidden" name="action" value="save_user">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="username">你的名字</label>
+                        <input type="text" id="username" name="username" value="{{ username }}" placeholder="请输入你的名字">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">紧急联系人邮箱</label>
+                        <input type="email" id="email" name="email" value="{{ email }}" placeholder="请输入紧急联系人邮箱">
+                    </div>
+                </div>
+                
+                <div class="form-row" style="justify-content: space-between;">
+                    <button type="submit" class="settings-btn" style="flex: 1;">保存用户信息</button>
+                </div>
+            </form>
+            
+            <!-- 单独的邮件发送表单 -->
+            <form method="POST" style="margin-top: 15px;">
+                <div class="form-row" style="justify-content: flex-end;">
+                    <button type="submit" name="action" value="send_email" class="settings-btn" style="flex: 1; background-color: #FF6B6B; color: white;">一键发送邮件</button>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+        
+        <div class="sign-in-section">
+            <form method="POST">
+                <input type="hidden" name="action" value="sign_in">
+                <button type="submit" class="sign-in-btn" {% if signed_in_today %}disabled{% endif %}>
+                    <span style="z-index: 1;">
+                        {% if signed_in_today %}
+                        已签到
+                        {% else %}
+                        今日签到
+                        {% endif %}
+                    </span>
+                </button>
+            </form>
+        </div>
+        
+        <div class="stats-section">
+            <div class="stat-card">
+                <div class="stat-title">连续打卡</div>
+                <div class="stat-value">{{ consecutive_days }}</div>
+                <div class="stat-unit">天</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-title">最长连续</div>
+                <div class="stat-value">{{ longest_streak }}</div>
+                <div class="stat-unit">天</div>
+            </div>
+        </div>
+        
+        <div class="warning">
+            若连续两日未签到，系统将自动向您填写的紧急联系人邮箱发送提醒邮件
+        </div>
+        
+        <div class="footer">
+            &copy; 2024 活着吗？ Project. All rights reserved.
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var container = document.querySelector('.form-container');
+            if (container) {
+                var forms = container.querySelectorAll('form');
+                forms.forEach(function(form) {
+                    form.addEventListener('submit', function() {
+                        container.style.display = 'none';
+                    });
+                });
+            }
+            var successEl = document.querySelector('.success');
+            if (successEl) {
+                setTimeout(function() {
+                    successEl.style.display = 'none';
+                }, 5000);
+            }
+        });
+    </script>
+</body>
+</html>

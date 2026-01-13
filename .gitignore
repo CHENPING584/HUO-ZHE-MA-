@@ -1,0 +1,32 @@
+# 忽略Python编译文件
+*.pyc
+__pycache__/
+
+# 忽略数据库文件
+sign_in.db
+
+# 忽略IDE配置文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 忽略操作系统文件
+.DS_Store
+Thumbs.db
+
+# 忽略日志文件
+*.log
+
+# 忽略虚拟环境
+venv/
+env/
+.venv/
+
+# 忽略测试文件
+.pytest_cache/
+.testmondata
+
+.vercel
+.env*.local
