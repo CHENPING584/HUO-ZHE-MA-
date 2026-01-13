@@ -7,7 +7,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # 用于会话加密
+# 使用固定密钥以保持会话（仅用于演示，生产环境应使用环境变量）
+app.secret_key = os.environ.get('SECRET_KEY', 'huo-zhe-ma-secret-key-2024')
 
 # 授权码
 AUTHORIZATION_CODE = "LYY996"
@@ -96,13 +97,19 @@ def init_db():
     conn.commit()
     conn.close()
 
-# 确保在 Vercel 环境下每次启动都检查数据库表是否存在
-if os.environ.get('VERCEL'):
-    try:
-        init_db()
-        print("Vercel环境: 数据库表初始化完成")
-    except Exception as e:
-        print(f"Vercel环境: 数据库初始化失败 - {str(e)}")
+# Vercel环境下的数据库初始化标记
+_db_initialized = False
+
+@app.before_request
+def initialize_database():
+    global _db_initialized
+    if os.environ.get('VERCEL') and not _db_initialized:
+        try:
+            init_db()
+            _db_initialized = True
+            print("Vercel环境: 数据库表初始化完成")
+        except Exception as e:
+            print(f"Vercel环境: 数据库初始化失败 - {str(e)}")
 
 # 检查用户是否已签到
 def is_signed_in_today(user_id):
