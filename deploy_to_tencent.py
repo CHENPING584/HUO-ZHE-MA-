@@ -11,7 +11,10 @@ load_dotenv()
 HOST = '62.234.25.31'
 PORT = 22
 USERNAME = 'root'
-PASSWORD = os.getenv('SERVER_PASSWORD', 'XCxc5200') # 优先从环境变量获取，保留默认值以便本地运行
+PASSWORD = os.getenv('SERVER_PASSWORD')
+if not PASSWORD:
+    print("错误: 未找到 SERVER_PASSWORD 环境变量，请在 .env 文件中配置")
+    sys.exit(1)
 
 # 本地项目路径
 LOCAL_PATH = os.getcwd()
