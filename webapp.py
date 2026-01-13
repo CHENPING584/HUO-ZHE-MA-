@@ -463,8 +463,8 @@ def home():
                 
                 # 更新当前用户信息
                 print(f"更新用户信息: user_id={user_id}, username={username}, email={email}")
-                # 每次修改信息都重置setup_completed状态，强制重新验证
-                cursor.execute("UPDATE users SET username = ?, email = ?, setup_completed = 0 WHERE user_id = ?", (username, email, user_id))
+                # 仅更新基本信息，不重置setup_completed状态，避免重复验证
+                cursor.execute("UPDATE users SET username = ?, email = ? WHERE user_id = ?", (username, email, user_id))
                 print(f"更新成功")
                 
                 print("提交事务")
@@ -478,7 +478,7 @@ def home():
                 session["username"] = username
                 session["email"] = email
                 session["info_saved"] = True  # 标记用户信息已保存
-                session["email_sent"] = False # 重新保存后需要重新发送邮件
+                # session["email_sent"] = False # 不需要重置邮件发送状态
                 print(f"会话更新成功: user_id={user_id}")
                 
                 # 刷新数据
@@ -625,7 +625,7 @@ def home():
         
         elif action == "edit_info":
             session["info_saved"] = False
-            session["email_sent"] = False
+            # session["email_sent"] = False # 不需要重置邮件发送状态
             return redirect(url_for("home"))
     
     # 计算步骤状态
