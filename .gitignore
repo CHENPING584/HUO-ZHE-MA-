@@ -4,6 +4,14 @@ __pycache__/
 
 # 忽略数据库文件
 sign_in.db
+huozhema.db
+*.sqlite
+*.sqlite3
+
+# 敏感配置文件
+.env
+.env.local
+.env.*.local
 
 # 忽略IDE配置文件
 .vscode/

@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>活着吗？</title>
+    <!-- 引入可爱的字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Zcool+KuaiLe&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary-color: #4facfe;
@@ -186,7 +190,7 @@
             width: 230px;
             height: 230px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #4CBB17 0%, #3A9E0F 100%);
+            background: linear-gradient(135deg, #bdc3c7 0%, #7f8c8d 100%);
             color: white;
             border: none;
             font-size: 24px;
@@ -195,7 +199,7 @@
             transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             position: relative;
             font-family: inherit;
-            box-shadow: 0 10px 30px rgba(76, 187, 23, 0.4);
+            box-shadow: 0 10px 30px rgba(189, 195, 199, 0.4);
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -378,6 +382,93 @@
                 font-size: 36px;
             }
         }
+
+        /* 弹窗样式 - 撕纸效果 */
+        .modal {
+            display: flex; /* 默认显示 */
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+            animation: fadeIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background-color: #fff;
+            width: 85%;
+            max-width: 350px;
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            /* 撕纸效果核心 */
+            mask-image: linear-gradient(to bottom, black 95%, transparent 100%),
+                url('data:image/svg+xml;utf8,<svg width="20" height="10" xmlns="http://www.w3.org/2000/svg"><path d="M0 0 L10 10 L20 0 Z" fill="black"/></svg>');
+            mask-size: 100% 100%, 20px 10px;
+            mask-repeat: no-repeat, repeat-x;
+            mask-position: top, bottom;
+            /* 备用样式：圆角 */
+            border-radius: 20px;
+            
+            animation: slideDown 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            transform-origin: top center;
+            
+            /* 纸张纹理 */
+            background-image: linear-gradient(to bottom right, #fffdf0, #fff);
+            border: 1px solid #eee;
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-100px) rotate(-5deg); opacity: 0; }
+            to { transform: translateY(0) rotate(0); opacity: 1; }
+        }
+
+        .quote-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .quote-text {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 24px;
+            color: #444;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .close-hint {
+            font-family: 'Zcool KuaiLe', cursive;
+            color: #999;
+            font-size: 14px;
+            margin-top: 20px;
+            opacity: 0.7;
+            animation: pulse-text 2s infinite;
+        }
+        
+        @keyframes pulse-text {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -399,32 +490,51 @@
         {% endif %}
 
         <div class="form-container">
-            {% if not success or success == '签到成功' %}
+            {% if step == 'save_info' %}
             <form method="POST">
                 <input type="hidden" name="action" value="save_user">
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="username">你的名字</label>
-                        <input type="text" id="username" name="username" value="{{ username }}" placeholder="请输入你的名字">
+                        <label for="username">您的姓名 (用于邮件通知)</label>
+                        <input type="text" id="username" name="username" value="{{ username }}" placeholder="请输入您的姓名" required>
                     </div>
                     
                     <div class="form-group">
                         <label for="email">紧急联系人邮箱</label>
-                        <input type="email" id="email" name="email" value="{{ email }}" placeholder="请输入紧急联系人邮箱">
+                        <input type="email" id="email" name="email" value="{{ email }}" placeholder="请输入紧急联系人邮箱" required>
                     </div>
                 </div>
                 
                 <div class="form-row" style="justify-content: space-between;">
-                    <button type="submit" class="settings-btn" style="flex: 1;">保存用户信息</button>
+                    <button type="submit" class="settings-btn" style="flex: 1;">保存用户信息 (第一步)</button>
                 </div>
             </form>
-            
-            <!-- 单独的邮件发送表单 -->
-            <form method="POST" style="margin-top: 15px;">
-                <div class="form-row" style="justify-content: flex-end;">
-                    <button type="submit" name="action" value="send_email" class="settings-btn" style="flex: 1; background-color: #FF6B6B; color: white;">一键发送邮件</button>
+            {% endif %}
+
+            {% if step == 'send_email' %}
+            <form method="POST">
+                <input type="hidden" name="action" value="send_email">
+                <input type="hidden" name="username" value="{{ username }}">
+                <input type="hidden" name="email" value="{{ email }}">
+                <div class="warning" style="background-color: rgba(255, 165, 0, 0.2); color: #fff; margin-bottom: 20px;">
+                    <p>请发送测试邮件以验证紧急联系人邮箱。验证成功后方可使用签到功能。</p>
+                    <p>当前设置: 姓名={{ username }}, 紧急邮箱={{ email }} <a href="javascript:document.getElementById('edit-form').submit();" style="color: white; text-decoration: underline;">修改</a></p>
                 </div>
+                <button type="submit" class="settings-btn" style="width: 100%; background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);">发送验证邮件 (第二步)</button>
+            </form>
+            <!-- 隐藏的修改表单 -->
+            <form id="edit-form" method="POST" style="display: none;">
+                <input type="hidden" name="action" value="edit_info">
+            </form>
+            {% endif %}
+
+            {% if step == 'done' %}
+            <div class="user-info-display" style="text-align: center; margin-bottom: 20px; color: rgba(255,255,255,0.8); font-size: 14px;">
+                <p>已绑定: {{ username }} | {{ email }} <a href="javascript:document.getElementById('edit-form-done').submit();" style="color: rgba(255,255,255,0.6); text-decoration: underline; margin-left: 10px; font-size: 12px;">修改</a></p>
+            </div>
+            <form id="edit-form-done" method="POST" style="display: none;">
+                <input type="hidden" name="action" value="edit_info">
             </form>
             {% endif %}
         </div>
@@ -463,9 +573,49 @@
         </div>
         
         <div class="footer">
-            &copy; 2024 活着吗？ Project. All rights reserved.
+            &copy; 2026 活着吗？ Project. All rights reserved.
         </div>
     </div>
+
+    {% if quote %}
+    <div id="quote-modal" class="modal">
+        <div class="modal-content">
+            <!-- 动态图标区域 -->
+            <div class="quote-icon">
+                {% if theme_id == 1 %}
+                <!-- 太阳图标 -->
+                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="50" r="20" fill="#FFD93D"/>
+                    <path d="M50 15V5M50 95V85M15 50H5M95 50H85M25.25 25.25L18.18 18.18M81.82 81.82L74.75 74.75M25.25 74.75L18.18 81.82M81.82 18.18L74.75 25.25" stroke="#FFD93D" stroke-width="8" stroke-linecap="round"/>
+                </svg>
+                {% elif theme_id == 2 %}
+                <!-- 绿植图标 -->
+                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M50 90V40M50 40C50 40 30 30 30 10M50 40C50 40 70 30 70 10" stroke="#6BCB77" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M30 10C30 10 40 25 50 40" stroke="#6BCB77" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.5"/>
+                    <path d="M70 10C70 10 60 25 50 40" stroke="#6BCB77" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.5"/>
+                </svg>
+                {% elif theme_id == 3 %}
+                <!-- 星星图标 -->
+                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M50 15L61 38H85L66 52L73 75L50 62L27 75L34 52L15 38H39L50 15Z" fill="#FF6B6B" stroke="#FF6B6B" stroke-width="4" stroke-linejoin="round"/>
+                    <path d="M80 20L85 15M15 80L20 85" stroke="#FFD93D" stroke-width="4" stroke-linecap="round"/>
+                </svg>
+                {% else %}
+                <!-- 爱心图标 -->
+                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M50 85L15 50C5 40 5 20 25 15C35 12.5 45 20 50 30C55 20 65 12.5 75 15C95 20 95 40 85 50L50 85Z" fill="#FF6B6B"/>
+                    <path d="M50 85L15 50C5 40 5 20 25 15C35 12.5 45 20 50 30" stroke="#FF8E8E" stroke-width="4" stroke-linecap="round"/>
+                </svg>
+                {% endif %}
+            </div>
+            
+            <p class="quote-text">{{ quote }}</p>
+            <p class="close-hint">点击任意处关闭</p>
+        </div>
+    </div>
+    {% endif %}
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             var container = document.querySelector('.form-container');
@@ -482,6 +632,18 @@
                 setTimeout(function() {
                     successEl.style.display = 'none';
                 }, 5000);
+            }
+
+            // 鼓励语卡片点击关闭逻辑
+            var modal = document.getElementById("quote-modal");
+            if (modal) {
+                modal.addEventListener('click', function() {
+                    modal.style.opacity = '0';
+                    modal.style.transition = 'opacity 0.5s ease';
+                    setTimeout(function() {
+                        modal.style.display = 'none';
+                    }, 500);
+                });
             }
         });
     </script>

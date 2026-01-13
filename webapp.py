@@ -1,23 +1,27 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 import sqlite3
 import datetime
+from datetime import timedelta
 import os
 import smtplib
+import random
+import quotes
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 app = Flask(__name__)
 # 使用固定密钥以保持会话（仅用于演示，生产环境应使用环境变量）
 app.secret_key = os.environ.get('SECRET_KEY', 'huo-zhe-ma-secret-key-2024')
-
-# 授权码
-AUTHORIZATION_CODE = "LYY996"
+app.permanent_session_lifetime = timedelta(days=3650) # 10年过期，实现"一次输入永久有效"
 
 # 邮件配置
 SMTP_USERNAME = os.environ.get('SMTP_USERNAME', '')  # 从环境变量获取
 SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')  # 从环境变量获取
 SMTP_SERVER = os.environ.get('SMTP_SERVER', '')
 SMTP_PORT = int(os.environ.get('SMTP_PORT', 0))
+
+# 管理员密码 (简单硬编码，实际应使用环境变量)
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', '200599XC')
 
 # 从config.ini读取邮件配置作为备份
 import configparser
@@ -82,6 +86,48 @@ def init_db():
     )
     ''')
     
+    # 检查并添加 auth_code 列
+    cursor.execute("PRAGMA table_info(users)")
+    columns = [info[1] for info in cursor.fetchall()]
+    if 'auth_code' not in columns:
+        print("Migrating database: Adding auth_code column to users table")
+        try:
+            # SQLite不支持在已有数据的非空列上直接添加UNIQUE约束，所以先添加普通列
+            # 但这里我们希望它是唯一的，对于新列（全是NULL），这是允许的，或者我们可以先允许NULL
+            cursor.execute("ALTER TABLE users ADD COLUMN auth_code TEXT")
+            # 创建唯一索引以确保唯一性
+            cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_auth_code ON users(auth_code)")
+            
+            # 为现有用户生成随机授权码
+            cursor.execute("SELECT user_id FROM users WHERE auth_code IS NULL")
+            users_without_code = cursor.fetchall()
+            
+            import string
+            chars = string.ascii_uppercase + string.digits
+            
+            for (uid,) in users_without_code:
+                while True:
+                    new_code = ''.join(random.choice(chars) for _ in range(6))
+                    # 检查冲突
+                    cursor.execute("SELECT 1 FROM users WHERE auth_code = ?", (new_code,))
+                    if not cursor.fetchone():
+                        cursor.execute("UPDATE users SET auth_code = ? WHERE user_id = ?", (new_code, uid))
+                        break
+            print(f"Migrated {len(users_without_code)} existing users with new auth codes")
+            
+        except Exception as e:
+            print(f"Migration warning: {e}")
+            
+    # 检查并添加 setup_completed 列
+    if 'setup_completed' not in columns:
+        print("Migrating database: Adding setup_completed column to users table")
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN setup_completed INTEGER DEFAULT 0")
+            # 现有用户（非未激活）视为已完成设置
+            cursor.execute("UPDATE users SET setup_completed = 1 WHERE username NOT LIKE '未激活_%' AND username NOT LIKE '用户_%'")
+        except Exception as e:
+            print(f"Migration warning: {e}")
+
     # 创建签到记录表
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS sign_records (
@@ -309,13 +355,47 @@ def get_longest_streak(user_id):
 # 授权码验证页面
 @app.route("/", methods=["GET", "POST"])
 def login():
+    if session.get("authorized"):
+        return redirect(url_for("home"))
+        
     if request.method == "POST":
         code = request.form.get("code")
-        if code == AUTHORIZATION_CODE:
-            session["authorized"] = True
-            return redirect(url_for("home"))
+        if code:
+            # 统一转换为大写并去除首尾空格
+            code = code.strip().upper()
+            
+            try:
+                # 确保数据库表结构最新
+                init_db()
+                
+                conn = sqlite3.connect(DATABASE)
+                cursor = conn.cursor()
+                
+                # 检查是否存在绑定该授权码的用户
+                cursor.execute("SELECT user_id, username, email FROM users WHERE auth_code = ?", (code,))
+                user = cursor.fetchone()
+                
+                if user:
+                    # 用户存在，直接登录
+                    user_id, username, email = user
+                    session["user_id"] = user_id
+                    session["username"] = username
+                    session["email"] = email
+                    session["authorized"] = True
+                    session.permanent = True # 设置永久会话
+                    
+                    conn.close()
+                    return redirect(url_for("home"))
+                else:
+                    # 授权码不存在，提示错误（不再自动注册）
+                    conn.close()
+                    return render_template("login.html", error="无效的授权码，请联系管理员获取")
+            except Exception as e:
+                print(f"Login error: {str(e)}")
+                return render_template("login.html", error="登录失败，系统错误")
         else:
-            return render_template("login.html", error="授权码错误")
+            return render_template("login.html", error="请输入授权码")
+            
     return render_template("login.html")
 
 # 主页面
@@ -351,7 +431,7 @@ def home():
                 email = request.form.get("email")
                 
                 if not username or not email:
-                    return render_template("home.html", username=username, email=email, error="用户名和邮箱不能为空")
+                    return render_template("home.html", username=username, email=email, error="用户名和邮箱不能为空", step='save_info')
                 
                 print(f"保存用户信息: username={username}, email={email}")
                 print(f"数据库路径: {DATABASE}")
@@ -372,24 +452,20 @@ def home():
                 cursor = conn.cursor()
                 print("数据库连接成功")
                 
-                # 检查用户是否已存在
-                print(f"检查用户是否存在: {username}")
-                cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+                # 检查用户是否已存在（排除自己）
+                print(f"检查用户名是否可用: {username}")
+                cursor.execute("SELECT user_id FROM users WHERE username = ? AND user_id != ?", (username, user_id))
                 existing_user = cursor.fetchone()
-                print(f"查询结果: {existing_user}")
                 
                 if existing_user:
-                    # 更新用户信息
-                    print(f"更新用户信息: user_id={existing_user[0]}, email={email}")
-                    cursor.execute("UPDATE users SET email = ? WHERE user_id = ?", (email, existing_user[0]))
-                    user_id = existing_user[0]
-                    print(f"更新成功")
-                else:
-                    # 添加新用户
-                    print(f"添加新用户: username={username}, email={email}")
-                    cursor.execute("INSERT INTO users (username, email) VALUES (?, ?)", (username, email))
-                    user_id = cursor.lastrowid
-                    print(f"插入成功，user_id={user_id}")
+                    conn.close()
+                    return render_template("home.html", username=username, email=email, error="该用户名已被使用，请换一个", step='save_info')
+                
+                # 更新当前用户信息
+                print(f"更新用户信息: user_id={user_id}, username={username}, email={email}")
+                # 每次修改信息都重置setup_completed状态，强制重新验证
+                cursor.execute("UPDATE users SET username = ?, email = ?, setup_completed = 0 WHERE user_id = ?", (username, email, user_id))
+                print(f"更新成功")
                 
                 print("提交事务")
                 conn.commit()
@@ -401,6 +477,8 @@ def home():
                 session["user_id"] = user_id
                 session["username"] = username
                 session["email"] = email
+                session["info_saved"] = True  # 标记用户信息已保存
+                session["email_sent"] = False # 重新保存后需要重新发送邮件
                 print(f"会话更新成功: user_id={user_id}")
                 
                 # 刷新数据
@@ -412,7 +490,16 @@ def home():
                 signed_in_today = is_signed_in_today(user_id)
                 print(f"今日已签到: {signed_in_today}")
                 
-                return render_template("home.html", username=username, email=email, consecutive_days=consecutive_days, longest_streak=longest_streak, signed_in_today=signed_in_today, success="用户信息已保存")
+                # 计算步骤状态
+                step = 'done'
+                if not signed_in_today:
+                    # 检查是否使用了默认用户名（以"用户_"开头），如果是则认为未保存信息
+                    if not session.get("info_saved") or username.startswith("用户_"):
+                        step = 'save_info'
+                    elif not session.get("email_sent"):
+                        step = 'send_email'
+                
+                return render_template("home.html", username=username, email=email, consecutive_days=consecutive_days, longest_streak=longest_streak, signed_in_today=signed_in_today, success="用户信息已保存", step=step)
             except Exception as e:
                 # 打印详细的错误信息到日志
                 import traceback
@@ -420,16 +507,26 @@ def home():
                 print("错误堆栈:")
                 traceback.print_exc()
                 # 返回友好的错误信息给用户
-                return render_template("home.html", username=username, email=email, error="保存用户信息失败，请稍后重试")
+                return render_template("home.html", username=username, email=email, error="保存用户信息失败，请稍后重试", step='save_info')
         
         elif action == "sign_in":
             try:
                 # 执行签到
                 if not user_id:
-                    return render_template("home.html", username=username, email=email, error="请先保存用户信息")
+                    return render_template("home.html", username=username, email=email, error="请先保存用户信息", step='save_info')
+                
+                # 检查是否已完成设置
+                conn = sqlite3.connect(DATABASE)
+                cursor = conn.cursor()
+                cursor.execute("SELECT setup_completed FROM users WHERE user_id = ?", (user_id,))
+                result = cursor.fetchone()
+                conn.close()
+                
+                if not result or not result[0]:
+                    return render_template("home.html", username=username, email=email, error="请先完成邮箱验证", step='send_email')
                 
                 if signed_in_today:
-                    return render_template("home.html", username=username, email=email, consecutive_days=consecutive_days, longest_streak=longest_streak, signed_in_today=signed_in_today, error="您今日已签到")
+                    return render_template("home.html", username=username, email=email, consecutive_days=consecutive_days, longest_streak=longest_streak, signed_in_today=signed_in_today, error="您今日已签到", step='done')
                 
                 # 确保数据库表存在
                 init_db()
@@ -449,20 +546,47 @@ def home():
                 longest_streak = get_longest_streak(user_id)
                 signed_in_today = True
                 
-                return render_template("home.html", username=username, email=email, consecutive_days=consecutive_days, longest_streak=longest_streak, signed_in_today=signed_in_today, success="签到成功")
+                # 获取已使用的语录索引
+                used_quotes = session.get("used_quotes", [])
+                
+                # 计算可用索引
+                all_indices = set(range(len(quotes.QUOTES)))
+                available_indices = list(all_indices - set(used_quotes))
+                
+                if not available_indices:
+                    # 如果所有语录都用过了，重置
+                    used_quotes = []
+                    available_indices = list(all_indices)
+                
+                # 随机选择一个索引
+                if available_indices:
+                    quote_index = random.choice(available_indices)
+                    quote = quotes.QUOTES[quote_index]
+                    
+                    # 更新已使用列表
+                    used_quotes.append(quote_index)
+                    session["used_quotes"] = used_quotes
+                else:
+                    #以防万一quotes为空
+                    quote = "加油！"
+                
+                # 随机选择一个主题图标 (1-4)
+                theme_id = random.randint(1, 4)
+                
+                return render_template("home.html", username=username, email=email, consecutive_days=consecutive_days, longest_streak=longest_streak, signed_in_today=signed_in_today, success="签到成功", step='done', quote=quote, theme_id=theme_id)
             except Exception as e:
                 # 打印错误信息到日志
                 print(f"签到错误: {str(e)}")
                 # 返回友好的错误信息给用户
-                return render_template("home.html", username=username, email=email, consecutive_days=consecutive_days, longest_streak=longest_streak, signed_in_today=signed_in_today, error="签到失败，请稍后重试")
+                return render_template("home.html", username=username, email=email, consecutive_days=consecutive_days, longest_streak=longest_streak, signed_in_today=signed_in_today, error="签到失败，请稍后重试", step='done') # 签到失败可能需要保持原状态，但这里简单处理，或者重新计算step
         
         elif action == "send_email":
             try:
                 if not user_id:
-                    return render_template("home.html", username=username, email=email, error="请先保存用户信息")
+                    return render_template("home.html", username=username, email=email, error="请先保存用户信息", show_form=True)
                 
                 if not email:
-                    return render_template("home.html", username=username, email=email, error="请先设置紧急联系人邮箱")
+                    return render_template("home.html", username=username, email=email, error="请先设置紧急联系人邮箱", show_form=True)
                 
                 # 发送内容
                 subject = "紧急提醒 - 活着吗"
@@ -482,14 +606,45 @@ def home():
                 full_msg = " | ".join(messages)
                 
                 if email_result:
-                    return render_template("home.html", username=username, email=email, consecutive_days=consecutive_days, longest_streak=longest_streak, signed_in_today=signed_in_today, success=f"紧急联系人已设置。通知发送结果: {full_msg}")
+                    session["email_sent"] = True  # 标记邮件已发送
+                    
+                    # 更新数据库状态
+                    conn = sqlite3.connect(DATABASE)
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE users SET setup_completed = 1 WHERE user_id = ?", (user_id,))
+                    conn.commit()
+                    conn.close()
+                    
+                    return render_template("home.html", username=username, email=email, consecutive_days=consecutive_days, longest_streak=longest_streak, signed_in_today=signed_in_today, success=f"紧急联系人已设置。通知发送结果: {full_msg}", step='done')
                 else:
-                    return render_template("home.html", username=username, email=email, consecutive_days=consecutive_days, longest_streak=longest_streak, signed_in_today=signed_in_today, error=f"发送通知失败: {full_msg}")
+                    # 发送失败，显示发送邮件按钮
+                    return render_template("home.html", username=username, email=email, consecutive_days=consecutive_days, longest_streak=longest_streak, signed_in_today=signed_in_today, error=f"发送通知失败: {full_msg}", step='send_email')
             except Exception as e:
                 print(f"发送通知错误: {str(e)}")
-                return render_template("home.html", username=username, email=email, consecutive_days=consecutive_days, longest_streak=longest_streak, signed_in_today=signed_in_today, error=f"系统错误: {str(e)}")
+                return render_template("home.html", username=username, email=email, consecutive_days=consecutive_days, longest_streak=longest_streak, signed_in_today=signed_in_today, error=f"系统错误: {str(e)}", step='send_email')
+        
+        elif action == "edit_info":
+            session["info_saved"] = False
+            session["email_sent"] = False
+            return redirect(url_for("home"))
     
-    return render_template("home.html", username=username, email=email, consecutive_days=consecutive_days, longest_streak=longest_streak, signed_in_today=signed_in_today)
+    # 计算步骤状态
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT setup_completed FROM users WHERE user_id = ?", (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+    
+    is_setup_completed = result and result[0] == 1
+    
+    step = 'done'
+    if not is_setup_completed:
+        if not username or username.startswith("未激活_") or username.startswith("用户_") or not email:
+            step = 'save_info'
+        else:
+            step = 'send_email'
+    
+    return render_template("home.html", username=username, email=email, consecutive_days=consecutive_days, longest_streak=longest_streak, signed_in_today=signed_in_today, step=step)
 
 # 退出登录
 @app.route("/logout")
@@ -497,9 +652,124 @@ def logout():
     session.clear()
     return redirect(url_for("login"))
 
-if __name__ == "__main__":
-    init_db()
+# --- 管理员路由 ---
+
+@app.route("/admin", methods=["GET", "POST"])
+def admin_login():
+    if session.get("admin_logged_in"):
+        return redirect(url_for("admin_dashboard"))
+        
+    error = None
+    if request.method == "POST":
+        password = request.form.get("password")
+        if password == ADMIN_PASSWORD:
+            session["admin_logged_in"] = True
+            return redirect(url_for("admin_dashboard"))
+        else:
+            error = "密码错误"
+            
+    return render_template("admin.html", logged_in=False, error=error)
+
+@app.route("/admin/dashboard")
+def admin_dashboard():
+    if not session.get("admin_logged_in"):
+        return redirect(url_for("admin_login"))
     
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    
+    # 获取所有用户数据
+    cursor.execute("""
+        SELECT u.user_id, u.auth_code, u.username, u.email, 
+               (SELECT MAX(sign_date) FROM sign_records WHERE user_id = u.user_id) as last_sign
+        FROM users u
+    """)
+    rows = cursor.fetchall()
+    
+    users_data = []
+    active_today_count = 0
+    today_str = datetime.date.today().strftime("%Y-%m-%d")
+    
+    for row in rows:
+        user_id, auth_code, username, email, last_sign = row
+        streak = get_consecutive_days(user_id)
+        
+        if last_sign == today_str:
+            active_today_count += 1
+            
+        users_data.append({
+            "id": user_id,
+            "auth_code": auth_code if auth_code else "(旧用户)",
+            "username": username,
+            "email": email,
+            "streak": streak,
+            "last_sign": last_sign
+        })
+    
+    conn.close()
+    
+    return render_template("admin.html", logged_in=True, users=users_data, 
+                          total_users=len(users_data), active_today=active_today_count)
+
+@app.route("/admin/generate", methods=["POST"])
+def admin_generate_code():
+    if not session.get("admin_logged_in"):
+        return redirect(url_for("admin_login"))
+        
+    # 生成随机6位字母数字组合
+    import string
+    chars = string.ascii_uppercase + string.digits
+    while True:
+        new_code = ''.join(random.choice(chars) for _ in range(6))
+        # 检查是否重复
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1 FROM users WHERE auth_code = ?", (new_code,))
+        if not cursor.fetchone():
+            # 创建预留用户
+            try:
+                temp_username = f"未激活_{new_code}"
+                cursor.execute("INSERT INTO users (username, auth_code) VALUES (?, ?)", (temp_username, new_code))
+                conn.commit()
+                conn.close()
+                break
+            except sqlite3.IntegrityError:
+                conn.close()
+                continue
+        conn.close()
+        
+    return redirect(url_for("admin_dashboard"))
+
+@app.route("/admin/delete", methods=["POST"])
+def admin_delete_user():
+    if not session.get("admin_logged_in"):
+        return redirect(url_for("admin_login"))
+        
+    user_id = request.form.get("user_id")
+    if user_id:
+        try:
+            conn = sqlite3.connect(DATABASE)
+            cursor = conn.cursor()
+            # 删除签到记录
+            cursor.execute("DELETE FROM sign_records WHERE user_id = ?", (user_id,))
+            # 删除用户
+            cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Delete error: {e}")
+            
+    return redirect(url_for("admin_dashboard"))
+
+@app.route("/admin/logout")
+def admin_logout():
+    session.pop("admin_logged_in", None)
+    return redirect(url_for("admin_login"))
+
+# 确保应用启动时初始化数据库
+init_db()
+
+if __name__ == "__main__":
     # 启动时检查所有用户并发送未签到提醒
     check_and_send_reminders()
     
