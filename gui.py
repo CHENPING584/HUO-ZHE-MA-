@@ -17,6 +17,7 @@ class SignInApp:
         self.root = root
         self.db = SignInDatabase()
         self.current_user = None
+        self.is_signed = False
         
         # 统一颜色主题（根据用户提供的设计要求）
         self.colors = {
@@ -884,7 +885,8 @@ class SignInApp:
         try:
             # 获取今日签到状态
             is_signed = self.db.get_sign_status(self.current_user["user_id"])
-            # 签到按钮状态已经在按钮交互中处理，此处不需要额外处理
+            # 根据签到状态更新按钮
+            self._draw_circle_button(is_signed)
         except Exception as e:
             messagebox.showerror("错误", f"刷新签到状态失败：{str(e)}")
     

@@ -241,7 +241,7 @@
         }
         
         .sign-in-btn:disabled {
-            background: linear-gradient(135deg, #bdc3c7 0%, #2c3e50 100%);
+            background: linear-gradient(135deg, #2E7D32 0%, #388E3C 100%);
             cursor: not-allowed;
             box-shadow: none;
             transform: none;
@@ -497,12 +497,12 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="username">您的姓名 (用于邮件通知)</label>
-                        <input type="text" id="username" name="username" value="{{ username }}" placeholder="请输入您的姓名" required>
+                        <input type="text" id="username" name="username" value="{{ '' if username and username.startswith('用户_') else (username or '') }}" placeholder="请输入您的姓名" required>
                     </div>
                     
                     <div class="form-group">
                         <label for="email">紧急联系人邮箱</label>
-                        <input type="email" id="email" name="email" value="{{ email }}" placeholder="请输入紧急联系人邮箱" required>
+                        <input type="email" id="email" name="email" value="{{ '' if email is none or email == 'None' else email }}" placeholder="请输入紧急联系人邮箱" required>
                     </div>
                 </div>
                 
