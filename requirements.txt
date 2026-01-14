@@ -2,3 +2,4 @@ flask
 python-dotenv
 tencentcloud-sdk-python
 requests
+Flask-APScheduler

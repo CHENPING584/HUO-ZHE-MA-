@@ -8,8 +8,12 @@ import random
 import quotes
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from flask_apscheduler import APScheduler
+import logging
 
 app = Flask(__name__)
+# 初始化定时任务调度器
+scheduler = APScheduler()
 # 使用固定密钥以保持会话（仅用于演示，生产环境应使用环境变量）
 app.secret_key = os.environ.get('SECRET_KEY', 'huo-zhe-ma-secret-key-2024')
 app.permanent_session_lifetime = timedelta(days=3650) # 10年过期，实现"一次输入永久有效"
@@ -769,9 +773,25 @@ def admin_logout():
 # 确保应用启动时初始化数据库
 init_db()
 
+# 配置并启动定时任务
+if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+    # 仅在生产环境或调试模式的子进程中启动调度器，避免二次启动
+    try:
+        # 配置调度器
+        app.config['SCHEDULER_API_ENABLED'] = True
+        scheduler.init_app(app)
+        
+        # 添加定时任务：每天 22:00 执行
+        scheduler.add_job(id='daily_check', func=scheduled_daily_check, trigger='cron', hour=22, minute=0)
+        
+        scheduler.start()
+        print("定时任务调度器已启动: 每天 22:00 检查活跃状态")
+    except Exception as e:
+        print(f"定时任务启动失败: {e}")
+
 if __name__ == "__main__":
-    # 启动时检查所有用户并发送未签到提醒
-    check_and_send_reminders()
+    # 启动时不再发送提醒，交由定时任务处理
+    # check_and_send_reminders()
     
     # 生产环境配置
     port = int(os.environ.get('PORT', 5000))
